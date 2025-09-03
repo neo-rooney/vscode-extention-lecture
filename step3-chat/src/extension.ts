@@ -28,10 +28,20 @@ class Step2WebviewViewProvider implements vscode.WebviewViewProvider {
           });
           break;
 
-        case "hello":
-          vscode.window.showInformationMessage(
-            `React에서 보낸 메시지: ${message.data.text}`
-          );
+        case "chat-message":
+          const userMessage = message.data.message;
+
+          setTimeout(() => {
+            const response = "안녕하세요! 무엇을 도와드릴까요?";
+
+            webviewView.webview.postMessage({
+              command: "ai-response",
+              data: { response },
+            });
+          }, 1000);
+          break;
+
+        default:
           break;
       }
     });

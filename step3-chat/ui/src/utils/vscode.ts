@@ -21,6 +21,7 @@ export const getVSCodeAPI = (): VSCodeAPI | null => {
 };
 
 export const sendMessage = (command: string, data?: unknown) => {
+  console.log("sendMessage:", command, data);
   const vscode = getVSCodeAPI();
   if (vscode) {
     vscode.postMessage({ command, data });
