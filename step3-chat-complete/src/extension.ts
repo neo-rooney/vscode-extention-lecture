@@ -144,11 +144,149 @@ class Step2WebviewViewProvider implements vscode.WebviewViewProvider {
     return languageMap[extension || ""] || "text";
   }
 
-  private simulateStreamingResponse(
+  private detectFileWriteRequest(
+    message: string
+  ): { fileName: string; content: string } | null {
+    const lowerMessage = message.toLowerCase();
+
+    // 파일 쓰기 패턴 감지 (더 간단하고 정확한 패턴)
+    const patterns = [
+      // "README.md에 내용을 써줘" 패턴
+      /([a-zA-Z0-9._-]+\.(md|txt|json|js|ts|py|html|css|xml|yml|yaml))\s*에\s*(.+?)\s*(?:을|를)?\s*(?:써|쓰|작성|생성|만들|추가)/,
+      // "README.md에 내용을 써줘" 패턴 (더 유연한 버전)
+      /([a-zA-Z0-9._-]+\.(md|txt|json|js|ts|py|html|css|xml|yml|yaml))\s*에\s*(.+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = message.match(pattern);
+      if (match) {
+        const fileName = match[1].trim();
+        const content = match[3].trim();
+
+        // 파일명이 유효한지 확인
+        if (fileName && content && this.isValidFileName(fileName)) {
+          return { fileName, content };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private isValidFileName(fileName: string): boolean {
+    // 기본적인 파일명 유효성 검사
+    const validExtensions = [
+      ".md",
+      ".txt",
+      ".json",
+      ".js",
+      ".ts",
+      ".py",
+      ".html",
+      ".css",
+      ".xml",
+      ".yml",
+      ".yaml",
+    ];
+    const hasValidExtension = validExtensions.some((ext) =>
+      fileName.toLowerCase().endsWith(ext)
+    );
+
+    // 파일명에 금지된 문자가 없는지 확인
+    const invalidChars = /[<>:"/\\|?*]/;
+    const hasInvalidChars = invalidChars.test(fileName);
+
+    return hasValidExtension && !hasInvalidChars && fileName.length > 0;
+  }
+
+  private async handleFileWriteRequest(
+    webviewView: vscode.WebviewView,
+    request: { fileName: string; content: string }
+  ) {
+    try {
+      // 스트리밍 시작
+      webviewView.webview.postMessage({
+        command: "stream-start",
+        data: {
+          messageId: Date.now().toString(),
+          answerType: "file-write",
+        },
+      });
+
+      // 파일 경로 생성 (워크스페이스 루트에 생성)
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        throw new Error("워크스페이스가 열려있지 않습니다.");
+      }
+
+      const fileUri = vscode.Uri.joinPath(
+        workspaceFolder.uri,
+        request.fileName
+      );
+
+      // 파일이 이미 존재하는지 확인
+      let fileExists = false;
+      try {
+        await vscode.workspace.fs.stat(fileUri);
+        fileExists = true;
+      } catch {
+        fileExists = false;
+      }
+
+      // 파일 내용 생성
+      let finalContent = request.content;
+      if (fileExists) {
+        // 기존 파일이 있으면 내용을 추가
+        const existingContent = await vscode.workspace.fs.readFile(fileUri);
+        const existingText = Buffer.from(existingContent).toString("utf8");
+        finalContent = existingText + "\n\n" + request.content;
+      }
+
+      // 파일 쓰기
+      const contentBuffer = Buffer.from(finalContent, "utf8");
+      await vscode.workspace.fs.writeFile(fileUri, contentBuffer);
+
+      // 성공 메시지 전송
+      webviewView.webview.postMessage({
+        command: "file-write-result",
+        data: {
+          success: true,
+          fileName: request.fileName,
+          message: fileExists
+            ? `기존 파일에 내용이 추가되었습니다.`
+            : `새로운 파일이 생성되었습니다.`,
+        },
+      });
+    } catch (error) {
+      console.error("파일 쓰기 중 오류:", error);
+
+      // 실패 메시지 전송
+      webviewView.webview.postMessage({
+        command: "file-write-result",
+        data: {
+          success: false,
+          fileName: request.fileName,
+          message: `파일 생성 중 오류가 발생했습니다: ${
+            error instanceof Error ? error.message : "알 수 없는 오류"
+          }`,
+        },
+      });
+    }
+  }
+
+  private async simulateStreamingResponse(
     webviewView: vscode.WebviewView,
     userMessage: string,
     attachedFile?: { name: string; content: string; language: string }
   ) {
+    // 파일 쓰기 요청인지 확인
+    const fileWriteRequest = this.detectFileWriteRequest(userMessage);
+
+    if (fileWriteRequest) {
+      await this.handleFileWriteRequest(webviewView, fileWriteRequest);
+      return;
+    }
+
     // 답변 생성 (첨부 파일 정보 포함)
     const answer = generateAnswer(userMessage, attachedFile);
     const fullResponse = answer.content;

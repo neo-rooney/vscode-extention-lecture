@@ -7,11 +7,16 @@ interface ChatMessage {
   content: string;
   timestamp: number;
   isStreaming?: boolean;
-  answerType?: "weather" | "button" | "default";
+  answerType?: "weather" | "button" | "default" | "file-write";
   attachedFile?: {
     name: string;
     content: string;
     language: string;
+  };
+  fileWriteResult?: {
+    success: boolean;
+    fileName: string;
+    message: string;
   };
 }
 
@@ -95,6 +100,26 @@ function App() {
           name: data.fileName,
           content: data.content,
           language: data.language,
+        });
+      } else if (command === "file-write-result") {
+        // 파일 쓰기 결과 처리
+        setMessages((prev) => {
+          return prev.map((msg) => {
+            if (msg.type === "streaming" && msg.isStreaming) {
+              return {
+                ...msg,
+                type: "ai",
+                isStreaming: false,
+                answerType: "file-write",
+                fileWriteResult: {
+                  success: data.success,
+                  fileName: data.fileName,
+                  message: data.message,
+                },
+              };
+            }
+            return msg;
+          });
         });
       }
     };
@@ -321,6 +346,36 @@ function App() {
                   <div style={{ color: "var(--vscode-descriptionForeground)" }}>
                     {message.attachedFile.language} •{" "}
                     {message.attachedFile.content.length} characters
+                  </div>
+                </div>
+              )}
+
+              {/* 파일 쓰기 결과 표시 */}
+              {message.fileWriteResult && (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    padding: "8px",
+                    backgroundColor: message.fileWriteResult.success
+                      ? "#2d5a2d" // 진한 초록색 배경
+                      : "#5a2d2d", // 진한 빨간색 배경
+                    border: "1px solid var(--vscode-panel-border)",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    color: "#ffffff", // 하얀 글씨
+                  }}
+                >
+                  <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                    {message.fileWriteResult.success ? "✅" : "❌"}{" "}
+                    {message.fileWriteResult.success
+                      ? "파일 생성 완료"
+                      : "파일 생성 실패"}
+                  </div>
+                  <div style={{ marginBottom: "4px" }}>
+                    📄 {message.fileWriteResult.fileName}
+                  </div>
+                  <div style={{ color: "#e0e0e0" }}>
+                    {message.fileWriteResult.message}
                   </div>
                 </div>
               )}

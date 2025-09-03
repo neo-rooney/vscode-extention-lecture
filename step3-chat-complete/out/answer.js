@@ -3,6 +3,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateAnswer = generateAnswer;
 function generateAnswer(userMessage, attachedFile) {
     const message = userMessage.toLowerCase().trim();
+    // 파일 쓰기 요청 감지 (더 정확한 패턴)
+    const fileWritePatterns = [
+        /[a-zA-Z0-9._-]+\.(md|txt|json|js|ts|py|html|css|xml|yml|yaml)\s*에/,
+    ];
+    for (const pattern of fileWritePatterns) {
+        if (pattern.test(message)) {
+            return {
+                type: "file-write",
+                content: `파일 쓰기 요청을 처리하고 있습니다...`,
+            };
+        }
+    }
     // 날씨 키워드 감지
     if (message.includes("날씨") || message.includes("weather")) {
         return {
