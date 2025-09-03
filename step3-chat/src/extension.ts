@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { generateAnswer } from "./answer";
 
 class Step2WebviewViewProvider implements vscode.WebviewViewProvider {
   constructor(private _extensionUri: vscode.Uri) {}
@@ -47,14 +48,9 @@ class Step2WebviewViewProvider implements vscode.WebviewViewProvider {
     webviewView: vscode.WebviewView,
     userMessage: string
   ) {
-    // 긴 응답을 문장별로 분할
-    const fullResponse = `안녕하세요! ${userMessage}에 대해 도와드리겠습니다. 
-
-먼저 기본적인 정보를 확인해보겠습니다. 이 질문은 매우 흥미로운 주제네요.
-
-더 자세한 설명을 드리기 위해 몇 가지 추가 정보가 필요할 것 같습니다. 
-
-혹시 특별히 궁금한 부분이 있으시다면 언제든 말씀해 주세요!`;
+    // 답변 생성
+    const answer = generateAnswer(userMessage);
+    const fullResponse = answer.content;
 
     // 문장별로 분할 (마침표, 느낌표, 물음표 기준)
     const sentences = fullResponse
@@ -66,7 +62,10 @@ class Step2WebviewViewProvider implements vscode.WebviewViewProvider {
     // 스트리밍 시작 신호
     webviewView.webview.postMessage({
       command: "stream-start",
-      data: { messageId: Date.now().toString() },
+      data: {
+        messageId: Date.now().toString(),
+        answerType: answer.type,
+      },
     });
 
     // 각 문장을 순차적으로 전송

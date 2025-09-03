@@ -7,6 +7,7 @@ interface ChatMessage {
   content: string;
   timestamp: number;
   isStreaming?: boolean;
+  answerType?: "weather" | "button" | "default";
 }
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
               content: "",
               timestamp: Date.now(),
               isStreaming: true,
+              answerType: data.answerType,
             },
           ];
         });
@@ -182,6 +184,10 @@ function App() {
                     ? "var(--vscode-button-background)"
                     : message.type === "loading"
                     ? "var(--vscode-input-background)"
+                    : message.answerType === "weather"
+                    ? "var(--vscode-editor-background)"
+                    : message.answerType === "button"
+                    ? "var(--vscode-editor-background)"
                     : "var(--vscode-panel-background)",
                 color:
                   message.type === "user"
@@ -190,10 +196,16 @@ function App() {
                 border:
                   message.type === "loading"
                     ? "1px solid var(--vscode-input-border)"
+                    : message.answerType === "button"
+                    ? "1px solid var(--vscode-panel-border)"
                     : "none",
                 fontSize: "14px",
                 lineHeight: "1.4",
                 wordWrap: "break-word",
+                fontFamily:
+                  message.answerType === "button"
+                    ? "var(--vscode-editor-font-family)"
+                    : "inherit",
               }}
             >
               {message.type === "loading" && (
@@ -217,7 +229,22 @@ function App() {
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "4px" }}
                 >
-                  <span>{message.content}</span>
+                  {message.answerType === "button" ? (
+                    <pre
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        fontFamily: "var(--vscode-editor-font-family)",
+                        fontSize: "13px",
+                        margin: 0,
+                        padding: 0,
+                        display: "inline",
+                      }}
+                    >
+                      {message.content}
+                    </pre>
+                  ) : (
+                    <span>{message.content}</span>
+                  )}
                   <span
                     style={{
                       display: "inline-block",
@@ -231,7 +258,21 @@ function App() {
               )}
               {message.type !== "loading" &&
                 message.type !== "streaming" &&
-                message.content}
+                (message.answerType === "button" ? (
+                  <pre
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      fontFamily: "var(--vscode-editor-font-family)",
+                      fontSize: "13px",
+                      margin: 0,
+                      padding: 0,
+                    }}
+                  >
+                    {message.content}
+                  </pre>
+                ) : (
+                  message.content
+                ))}
             </div>
           </div>
         ))}
