@@ -31,9 +31,19 @@ class Step2WebviewViewProvider implements vscode.WebviewViewProvider {
 
         case "chat-message":
           const userMessage = message.data.message;
+          const attachedFile = message.data.attachedFile;
 
           // 스트리밍 응답 시뮬레이션
-          this.simulateStreamingResponse(webviewView, userMessage);
+          this.simulateStreamingResponse(
+            webviewView,
+            userMessage,
+            attachedFile
+          );
+          break;
+
+        case "select-file":
+          // 파일 선택 다이얼로그 열기
+          this.showFilePicker(webviewView);
           break;
 
         default:
@@ -44,12 +54,103 @@ class Step2WebviewViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
   }
 
+  private async showFilePicker(webviewView: vscode.WebviewView) {
+    try {
+      // 파일 선택 다이얼로그 열기
+      const fileUri = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        openLabel: "파일 선택",
+        filters: {
+          "All Files": ["*"],
+          TypeScript: ["ts", "tsx"],
+          JavaScript: ["js", "jsx"],
+          Python: ["py"],
+          Java: ["java"],
+          "C++": ["cpp", "c", "h", "hpp"],
+          "C#": ["cs"],
+          Go: ["go"],
+          Rust: ["rs"],
+          PHP: ["php"],
+          Ruby: ["rb"],
+          HTML: ["html", "htm"],
+          CSS: ["css"],
+          JSON: ["json"],
+          XML: ["xml"],
+          YAML: ["yml", "yaml"],
+          Markdown: ["md"],
+          Text: ["txt"],
+        },
+      });
+
+      if (fileUri && fileUri[0]) {
+        const uri = fileUri[0];
+
+        // 파일 내용 읽기
+        const fileContent = await vscode.workspace.fs.readFile(uri);
+        const content = Buffer.from(fileContent).toString("utf8");
+
+        // 파일 확장자로 언어 감지
+        const language = this.getLanguageFromExtension(uri.fsPath);
+
+        // 웹뷰에 파일 정보 전송
+        webviewView.webview.postMessage({
+          command: "file-selected",
+          data: {
+            fileName:
+              uri.fsPath.split("/").pop() || uri.fsPath.split("\\").pop(),
+            content: content,
+            language: language,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("파일 선택 중 오류:", error);
+      vscode.window.showErrorMessage("파일을 선택하는 중 오류가 발생했습니다.");
+    }
+  }
+
+  private getLanguageFromExtension(filePath: string): string {
+    const extension = filePath.split(".").pop()?.toLowerCase();
+
+    const languageMap: { [key: string]: string } = {
+      ts: "typescript",
+      tsx: "typescript",
+      js: "javascript",
+      jsx: "javascript",
+      py: "python",
+      java: "java",
+      cpp: "cpp",
+      c: "c",
+      h: "c",
+      hpp: "cpp",
+      cs: "csharp",
+      go: "go",
+      rs: "rust",
+      php: "php",
+      rb: "ruby",
+      html: "html",
+      htm: "html",
+      css: "css",
+      json: "json",
+      xml: "xml",
+      yml: "yaml",
+      yaml: "yaml",
+      md: "markdown",
+      txt: "text",
+    };
+
+    return languageMap[extension || ""] || "text";
+  }
+
   private simulateStreamingResponse(
     webviewView: vscode.WebviewView,
-    userMessage: string
+    userMessage: string,
+    attachedFile?: { name: string; content: string; language: string }
   ) {
-    // 답변 생성
-    const answer = generateAnswer(userMessage);
+    // 답변 생성 (첨부 파일 정보 포함)
+    const answer = generateAnswer(userMessage, attachedFile);
     const fullResponse = answer.content;
 
     // 문장별로 분할 (마침표, 느낌표, 물음표 기준)

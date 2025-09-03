@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateAnswer = generateAnswer;
-function generateAnswer(userMessage) {
+function generateAnswer(userMessage, attachedFile) {
     const message = userMessage.toLowerCase().trim();
     // 날씨 키워드 감지
     if (message.includes("날씨") || message.includes("weather")) {
@@ -105,6 +105,32 @@ export const ButtonExample = () => {
 - **타입 안전성**: TypeScript로 완전히 타입이 지정됨
 
 Tailwind CSS를 사용하고 있으니 프로젝트에 Tailwind가 설정되어 있어야 합니다.`,
+        };
+    }
+    // 첨부 파일이 있는 경우
+    if (attachedFile) {
+        return {
+            type: "default",
+            content: `첨부해주신 파일 "${attachedFile.name}"을 분석해보겠습니다.
+
+**파일 정보:**
+- 파일명: ${attachedFile.name}
+- 언어: ${attachedFile.language}
+- 크기: ${attachedFile.content.length} 문자
+
+**파일 내용 분석:**
+
+\`\`\`${attachedFile.language}
+${attachedFile.content.substring(0, 500)}${attachedFile.content.length > 500
+                ? "\n... (내용이 길어 일부만 표시)"
+                : ""}
+\`\`\`
+
+${userMessage}에 대한 답변을 드리기 위해 파일 내용을 참고하겠습니다.
+
+이 파일의 구조와 내용을 바탕으로 더 구체적인 도움을 드릴 수 있을 것 같습니다. 
+
+특별히 궁금한 부분이나 개선하고 싶은 부분이 있으시다면 말씀해 주세요!`,
         };
     }
     // 기본 답변

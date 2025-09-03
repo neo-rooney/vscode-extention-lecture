@@ -8,12 +8,22 @@ interface ChatMessage {
   timestamp: number;
   isStreaming?: boolean;
   answerType?: "weather" | "button" | "default";
+  attachedFile?: {
+    name: string;
+    content: string;
+    language: string;
+  };
 }
 
 function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{
+    name: string;
+    content: string;
+    language: string;
+  } | null>(null);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
@@ -79,6 +89,13 @@ function App() {
             return msg;
           });
         });
+      } else if (command === "file-selected") {
+        // 파일 선택 완료
+        setSelectedFile({
+          name: data.fileName,
+          content: data.content,
+          language: data.language,
+        });
       }
     };
 
@@ -96,6 +113,7 @@ function App() {
       type: "user",
       content: inputMessage,
       timestamp: Date.now(),
+      attachedFile: selectedFile || undefined,
     };
 
     const loadingMessage: ChatMessage = {
@@ -109,8 +127,11 @@ function App() {
     setInputMessage("");
     setIsLoading(true);
 
-    // VSCode 확장으로 메시지 전송
-    sendMessageToExtension("chat-message", { message: inputMessage });
+    // VSCode 확장으로 메시지 전송 (파일 정보 포함)
+    sendMessageToExtension("chat-message", {
+      message: inputMessage,
+      attachedFile: selectedFile,
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -118,6 +139,14 @@ function App() {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const selectFile = () => {
+    sendMessageToExtension("select-file", {});
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
   };
 
   return (
@@ -273,6 +302,28 @@ function App() {
                 ) : (
                   message.content
                 ))}
+
+              {/* 첨부 파일 표시 */}
+              {message.attachedFile && (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    padding: "8px",
+                    backgroundColor: "var(--vscode-input-background)",
+                    border: "1px solid var(--vscode-input-border)",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                  }}
+                >
+                  <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+                    📎 {message.attachedFile.name}
+                  </div>
+                  <div style={{ color: "var(--vscode-descriptionForeground)" }}>
+                    {message.attachedFile.language} •{" "}
+                    {message.attachedFile.content.length} characters
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -286,6 +337,48 @@ function App() {
           backgroundColor: "var(--vscode-panel-background)",
         }}
       >
+        {/* 선택된 파일 표시 */}
+        {selectedFile && (
+          <div
+            style={{
+              marginBottom: "8px",
+              padding: "8px",
+              backgroundColor: "var(--vscode-input-background)",
+              border: "1px solid var(--vscode-input-border)",
+              borderRadius: "4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>📎</span>
+              <span style={{ fontSize: "14px" }}>{selectedFile.name}</span>
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "var(--vscode-descriptionForeground)",
+                }}
+              >
+                ({selectedFile.language})
+              </span>
+            </div>
+            <button
+              onClick={clearSelectedFile}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--vscode-foreground)",
+                cursor: "pointer",
+                fontSize: "16px",
+                padding: "4px",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: "8px" }}>
           <textarea
             value={inputMessage}
@@ -308,6 +401,23 @@ function App() {
               outline: "none",
             }}
           />
+          <button
+            onClick={selectFile}
+            disabled={isLoading}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: "var(--vscode-button-secondaryBackground)",
+              color: "var(--vscode-button-secondaryForeground)",
+              border: "1px solid var(--vscode-button-border)",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px",
+              opacity: isLoading ? 0.5 : 1,
+            }}
+            title="워크스페이스에서 파일 선택"
+          >
+            📁
+          </button>
           <button
             onClick={sendMessage}
             disabled={!inputMessage.trim() || isLoading}
