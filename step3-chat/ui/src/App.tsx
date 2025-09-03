@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 
 interface ChatMessage {
   id: string;
-  type: "user" | "ai" | "loading";
+  type: "user" | "ai" | "loading" | "streaming";
   content: string;
   timestamp: number;
+  isStreaming?: boolean;
 }
 
 function App() {
@@ -19,10 +20,9 @@ function App() {
       const { command, data } = event.data;
 
       if (command === "ai-response") {
-        // AI 응답을 받았을 때
+        // 기존 AI 응답 처리 (호환성을 위해 유지)
         setIsLoading(false);
         setMessages((prev) => {
-          // 로딩 메시지 제거하고 AI 응답 추가
           const filtered = prev.filter((msg) => msg.type !== "loading");
           return [
             ...filtered,
@@ -33,6 +33,49 @@ function App() {
               timestamp: Date.now(),
             },
           ];
+        });
+      } else if (command === "stream-start") {
+        // 스트리밍 시작
+        setIsLoading(false);
+        setMessages((prev) => {
+          const filtered = prev.filter((msg) => msg.type !== "loading");
+          return [
+            ...filtered,
+            {
+              id: data.messageId,
+              type: "streaming",
+              content: "",
+              timestamp: Date.now(),
+              isStreaming: true,
+            },
+          ];
+        });
+      } else if (command === "stream-chunk") {
+        // 스트리밍 청크 수신
+        setMessages((prev) => {
+          return prev.map((msg) => {
+            if (msg.type === "streaming" && msg.isStreaming) {
+              return {
+                ...msg,
+                content: msg.content + data.chunk,
+              };
+            }
+            return msg;
+          });
+        });
+      } else if (command === "stream-end") {
+        // 스트리밍 완료
+        setMessages((prev) => {
+          return prev.map((msg) => {
+            if (msg.type === "streaming" && msg.isStreaming) {
+              return {
+                ...msg,
+                type: "ai",
+                isStreaming: false,
+              };
+            }
+            return msg;
+          });
         });
       }
     };
@@ -170,7 +213,25 @@ function App() {
                   {message.content}
                 </div>
               )}
-              {message.type !== "loading" && message.content}
+              {message.type === "streaming" && (
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <span>{message.content}</span>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: "2px",
+                      height: "16px",
+                      backgroundColor: "var(--vscode-editor-foreground)",
+                      animation: "blink 1s infinite",
+                    }}
+                  />
+                </div>
+              )}
+              {message.type !== "loading" &&
+                message.type !== "streaming" &&
+                message.content}
             </div>
           </div>
         ))}
@@ -225,12 +286,17 @@ function App() {
         </div>
       </div>
 
-      {/* 스피너 애니메이션 */}
+      {/* 애니메이션 */}
       <style>
         {`
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+          }
+          
+          @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
           }
         `}
       </style>
